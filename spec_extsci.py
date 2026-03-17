@@ -28,7 +28,7 @@ if not os.path.exists(out_dir):
 fits_datei = os.path.join(in_dir, "science_spectrum.fits")
 spektrum_half_width_init = 10
 sky_offset_init = 40
-sky_width = 10
+sky_width_init = 10
 snr_threshold = 5.0
 
 # -------------------------
@@ -127,14 +127,14 @@ profil = np.sum(daten, axis=1)
 profil_smooth = gaussian_filter1d(profil, sigma=5)
 y_peak = int(np.argmax(profil_smooth))
 
-trace_info = compute_trace(daten, y_peak, spektrum_half_width_init, sky_offset_init, sky_width, snr_threshold)
+trace_info = compute_trace(daten, y_peak, spektrum_half_width_init, sky_offset_init, sky_width_init, snr_threshold)
 spektrum_1d = extract_1d_spectrum(daten, trace_info["y_fit"], spektrum_half_width_init, trace_info["sky_median_per_col"])
 
 # -------------------------
 # Plot 2D + 1D + Slider
 # -------------------------
 fig, (ax_img, ax_spec) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios':[2,1]})
-plt.subplots_adjust(left=0.1, right=0.98, bottom=0.25, hspace=0.3)
+plt.subplots_adjust(left=0.1, right=0.98, bottom=0.30, hspace=0.3)
 
 vmin_init = np.percentile(daten,5)
 vmax_init = np.percentile(daten,95)
@@ -164,23 +164,28 @@ ax_vmin = plt.axes([0.15,0.12,0.65,0.03])
 ax_vmax = plt.axes([0.15,0.08,0.65,0.03])
 ax_hw   = plt.axes([0.15,0.04,0.35,0.03])
 ax_offset = plt.axes([0.55,0.04,0.25,0.03])
+ax_skyw = plt.axes([0.55,0.00,0.25,0.03])
 
 s_vmin = Slider(ax_vmin,'Min', float(np.min(daten)), float(np.max(daten)), valinit=vmin_init)
 s_vmax = Slider(ax_vmax,'Max', float(np.min(daten)), float(np.max(daten)), valinit=vmax_init)
 s_hw   = Slider(ax_hw,'HalfW', 1, max(1, ny//8), valinit=spektrum_half_width_init, valstep=1)
 s_offset = Slider(ax_offset,'SkyOffset', 1, ny//2, valinit=sky_offset_init, valstep=1)
+s_skyw = Slider(ax_skyw, 'SkyWidth', 1, max(2, ny//6), valinit=sky_width_init, valstep=1)
 
 # -------------------------
 # Update-Funktion
 # -------------------------
 def update(val):
+    global sky1_span, sky2_span, spektrum_1d
+
     vmin = s_vmin.val; vmax = s_vmax.val
     if vmax>vmin: img.set_clim(vmin=vmin,vmax=vmax)
 
     half_w = int(s_hw.val)
     sky_off = int(s_offset.val)
+    sky_w = int(s_skyw.val)
 
-    new_trace = compute_trace(daten, y_peak, half_w, sky_off, sky_width, snr_threshold)
+    new_trace = compute_trace(daten, y_peak, half_w, sky_off, sky_w, snr_threshold)
     new_flux = extract_1d_spectrum(daten, new_trace["y_fit"], half_w, new_trace["sky_median_per_col"])
 
     trace_line.set_ydata(new_trace["y_fit"])
@@ -188,11 +193,16 @@ def update(val):
     ap_lower.set_ydata(new_trace["y_fit"]-half_w)
 
     # Sky Spans aktualisieren
-    try: sky1_span.remove(); sky2_span.remove()
-    except: pass
-    ax_img.axhspan(*new_trace["sky1"], color='cyan', alpha=0.2)
-    ax_img.axhspan(*new_trace["sky2"], color='cyan', alpha=0.2)
+    try:
+        sky1_span.remove()
+        sky2_span.remove()
+    except Exception:
+        pass
 
+    sky1_span = ax_img.axhspan(*new_trace["sky1"], color='cyan', alpha=0.2)
+    sky2_span = ax_img.axhspan(*new_trace["sky2"], color='cyan', alpha=0.2)
+
+    spektrum_1d = new_flux
     spec_line.set_ydata(new_flux)
     ax_spec.relim(); ax_spec.autoscale_view()
 
@@ -202,6 +212,7 @@ s_vmin.on_changed(update)
 s_vmax.on_changed(update)
 s_hw.on_changed(update)
 s_offset.on_changed(update)
+s_skyw.on_changed(update)
 
 plt.show()
 
