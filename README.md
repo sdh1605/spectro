@@ -27,26 +27,34 @@ work_dir/
 
 ## 1. spec_stack.py
 
-**Zweck:** Stacking (Mitteln) mehrerer 2D-FITS-Dateien vor der weiteren Verarbeitung
+**Zweck:** Stacking mehrerer 2D-FITS-Dateien vor der weiteren Verarbeitung
 
 ### Funktionalität
 - Sucht alle FITS mit gleichem Prefix in `in/`
-- Mittelt die Daten (arithmetisches Mittel)
+- Kombiniert die Daten standardmaessig per Median
+- Optional: arithmetisches Mittel mit `--arith`
 - Aktualisiert Header (`NCOMBINE`, Kommentare)
 - Speichert das gestackte Ergebnis direkt als `science_spectrum.fits`
 - Dieses FITS wird anschließend von `spec_extsci.py` weiterverarbeitet
 
 ### Verwendung
 ```bash
-python3 spec_stack.py ARBEITSORDNER DATEI_PREFIX
+python3 spec_stack.py ARBEITSORDNER DATEI_PREFIX [--name OUTPUT_NAME] [--arith]
 ```
 
 ### Beispiel
 ```bash
-# Stackt alle science_spectrum_*.fits Dateien
+# Stackt alle science_spectrum_*.fits Dateien (Standard: Median)
 python3 spec_stack.py /pfad/zu/work science_spectrum_
 
 # Ergebnis: /pfad/zu/work/in/science_spectrum.fits
+
+# Arithmetisches Mittel statt Median
+python3 spec_stack.py /pfad/zu/work science_spectrum_ --arith
+
+# Eigener Ausgabename (z.B. fuer Kalibrationslampe)
+python3 spec_stack.py /pfad/zu/work calibration_lamp_ --name calibration_lamp
+# Ergebnis: /pfad/zu/work/in/calibration_lamp.fits
 ```
 
 ### Eingabe
@@ -55,6 +63,11 @@ python3 spec_stack.py /pfad/zu/work science_spectrum_
 ### Ausgabe
 - `ARBEITSORDNER/in/science_spectrum.fits` - Gestacktes 2D-FITS fuer die Extraktion
 - Header-Eintrag: `NCOMBINE = N` (Anzahl kombinierter Dateien)
+- Header-Eintrag: `COMBMETH = MEDIAN|MEAN` (Kombinationsmethode)
+
+### Optionen
+- `--name OUTPUT_NAME` - Ausgabename ohne oder mit `.fits` (Standard: `science_spectrum`)
+- `--arith` - Verwendet arithmetisches Mittel statt Median
 
 ### Anforderungen
 - Alle Dateien muessen identische Dimensionen haben
@@ -369,10 +382,13 @@ python3 spec_plot_fluxcal.py ARBEITSORDNER --no-save
 ### Vollständige Spektren-Reduktion und -Analyse
 
 ```bash
-# 1. FITS-Dateien stacken (mehrere Rohaufnahmen -> ein Arbeits-FITS)
+# 1. FITS-Dateien stacken (mehrere Rohaufnahmen -> ein Arbeits-FITS, Standard: Median)
 python3 spec_stack.py vega science_spectrum_
 # -> Input: vega/in/science_spectrum_*.fits
 # -> Output: vega/in/science_spectrum.fits
+
+# Optional: Arithmetisches Mittel
+python3 spec_stack.py vega science_spectrum_ --arith
 
 # 2. Spektrum extrahieren (2D -> 1D)
 python3 spec_extsci.py vega
@@ -571,7 +587,7 @@ pip install numpy scipy matplotlib astropy
 - **Pickles Cache:** Spektren werden in `pickles_cache/` gespeichert (nur 1x Download)
 
 ### Empfohlene Reihenfolge
-1. Zuerst mehrere Roh-FITS mit `spec_stack.py` zu `in/science_spectrum.fits` mitteln
+1. Zuerst mehrere Roh-FITS mit `spec_stack.py` zu `in/science_spectrum.fits` stacken (standardmaessig Median)
 2. Danach `spec_extsci.py` fuer die 1D-Extraktion ausfuehren
 3. Anschliessend kalibrieren und plotten
 
