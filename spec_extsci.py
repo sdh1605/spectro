@@ -10,11 +10,34 @@ import sys
 # -------------------------
 # Parameter
 # -------------------------
-if len(sys.argv) != 2:
-    print("Verwendung: python spec_extsci.py ARBEITSORDNER")
+args = sys.argv[1:]
+
+if len(args) < 1:
+    print("Verwendung: python spec_extsci.py ARBEITSORDNER [--ymin N --ymax N]")
     sys.exit(1)
 
-work_dir = sys.argv[1]
+work_dir = args[0]
+ymin_manual = None
+ymax_manual = None
+
+i = 1
+while i < len(args):
+    if args[i] == "--ymin":
+        if i + 1 >= len(args):
+            print("Fehler: Nach --ymin fehlt ein Wert.")
+            sys.exit(1)
+        ymin_manual = int(args[i + 1])
+        i += 2
+    elif args[i] == "--ymax":
+        if i + 1 >= len(args):
+            print("Fehler: Nach --ymax fehlt ein Wert.")
+            sys.exit(1)
+        ymax_manual = int(args[i + 1])
+        i += 2
+    else:
+        print(f"Unbekanntes Argument: {args[i]}")
+        print("Verwendung: python spec_extsci.py ARBEITSORDNER [--ymin N --ymax N]")
+        sys.exit(1)
 in_dir = os.path.join(work_dir, "in")
 out_dir = os.path.join(work_dir, "out")
 
@@ -44,6 +67,24 @@ if daten is None or daten.ndim != 2:
 
 daten = np.fliplr(daten)
 ny, nx = daten.shape
+
+# Suchbereich für grobe Spektrums-Lokalisierung:
+# Standard = mittlere 50% des Bildes, optional manuell per --ymin/--ymax.
+default_ymin = int(0.25 * ny)
+default_ymax = int(0.75 * ny)
+
+if ymin_manual is None and ymax_manual is None:
+    y_search_min = default_ymin
+    y_search_max = default_ymax
+else:
+    if ymin_manual is None or ymax_manual is None:
+        print("Fehler: Für manuelle Bereichswahl müssen --ymin und --ymax gemeinsam angegeben werden.")
+        sys.exit(1)
+    y_search_min = max(0, min(ny - 1, int(ymin_manual)))
+    y_search_max = max(1, min(ny, int(ymax_manual)))
+    if y_search_max <= y_search_min + 1:
+        print(f"Fehler: Ungültiger y-Bereich: ymin={y_search_min}, ymax={y_search_max}.")
+        sys.exit(1)
 
 # -------------------------
 # Hilfsfunktionen
@@ -125,7 +166,10 @@ def extract_1d_spectrum(daten, y_fit, half_width, sky_median_per_col):
 # -------------------------
 profil = np.sum(daten, axis=1)
 profil_smooth = gaussian_filter1d(profil, sigma=5)
-y_peak = int(np.argmax(profil_smooth))
+y_peak = int(y_search_min + np.argmax(profil_smooth[y_search_min:y_search_max]))
+
+print(f"y-Suchbereich für Spektrum: [{y_search_min}, {y_search_max})")
+print(f"Gefundene zentrale Spurposition: y = {y_peak}")
 
 trace_info = compute_trace(daten, y_peak, spektrum_half_width_init, sky_offset_init, sky_width_init, snr_threshold)
 spektrum_1d = extract_1d_spectrum(daten, trace_info["y_fit"], spektrum_half_width_init, trace_info["sky_median_per_col"])
@@ -151,6 +195,7 @@ ap_upper = ax_img.plot(trace_info["x"], trace_info["y_fit"]+spektrum_half_width_
 ap_lower = ax_img.plot(trace_info["x"], trace_info["y_fit"]-spektrum_half_width_init, color='lime', lw=0.8)[0]
 sky1_span = ax_img.axhspan(*trace_info["sky1"], color='cyan', alpha=0.2)
 sky2_span = ax_img.axhspan(*trace_info["sky2"], color='cyan', alpha=0.2)
+search_span = ax_img.axhspan(y_search_min, y_search_max, color='white', alpha=0.08)
 
 # 1D Spektrum
 spec_line, = ax_spec.plot(trace_info["x"], spektrum_1d, color='blue')

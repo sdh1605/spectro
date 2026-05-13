@@ -86,6 +86,8 @@ python3 spec_stack.py /pfad/zu/work calibration_lamp_ --name calibration_lamp
 - Lädt 2D-FITS (`science_spectrum.fits`) aus `in/`
 - Typischerweise stammt diese Datei aus dem vorherigen Stacking mit `spec_stack.py`
 - Spiegelt Bild horizontal (X-Achse)
+- Bestimmt die grobe Spektrumsposition standardmäßig nur im mittleren 50%-Bereich der y-Achse
+- Optional kann der y-Suchbereich manuell gesetzt werden (`--ymin`, `--ymax`)
 - Interaktive GUI zur Definition von:
   - Spektrums-Trace (Position und Breite)
   - Himmelshintergrund-Regionen (Sky offset und Breite)
@@ -95,15 +97,19 @@ python3 spec_stack.py /pfad/zu/work calibration_lamp_ --name calibration_lamp
 
 ### Verwendung
 ```bash
-python3 spec_extsci.py ARBEITSORDNER
+python3 spec_extsci.py ARBEITSORDNER [--ymin N --ymax N]
 ```
+
+### Optionen
+- `--ymin N --ymax N` - manueller y-Bereich für die grobe Spektrums-Lokalisierung
+  - Werden beide nicht gesetzt, wird standardmäßig die mittlere Bildhälfte in y verwendet: `[0.25*ny, 0.75*ny)`
 
 ### Eingabe
 - `ARBEITSORDNER/in/science_spectrum.fits` - 2D-FITS mit Spektrum, idealerweise bereits gestackt
 
 ### Ausgabe
 - `ARBEITSORDNER/out/science_spectrum_1d.fits` - Extrahiertes 1D-Spektrum (Binär-Tabelle)
-  - Spalten: `PIXEL`, `FLUX`, `SKY`
+  - Spalten: `PIXEL`, `FLUX`
 
 ### Parameter (im Skript anpassbar)
 - `spektrum_half_width_init = 10` - Halbe Breite des Spektrums (Pixel)
@@ -113,7 +119,7 @@ python3 spec_extsci.py ARBEITSORDNER
 
 ### Interaktive Bedienung
 - **Slider:** Anpassung von Spektrums-Breite, Sky-Position, Sky-Breite
-- **Plot:** Zeigt 2D-Bild mit markierten Regionen und extrahiertes 1D-Spektrum
+- **Plot:** Zeigt 2D-Bild mit Trace-, Apertur- und Sky-Markierungen sowie den verwendeten y-Suchbereich
 - **Automatisches Speichern** beim Schließen des Fensters
 
 ---
@@ -126,19 +132,22 @@ python3 spec_extsci.py ARBEITSORDNER
 - Lädt 1D-Spektrum (`science_spectrum_1d.fits`)
 - Optional: Lädt Kalibrations-Lampen-Spektrum (2D-FITS)
 - Interaktive GUI zum Markieren von Spektrallinien
-- Polynomial-Fit (Pixel → Wellenlänge)
+- Optional kann das Kalibrationsspektrum mit logarithmischer y-Achse dargestellt werden (`--ylog`)
+- Polynomial-Fit (Pixel -> Wellenlänge)
 - Speichert Wellenlösungs-Koeffizienten
 - Wendet Wellenlösung an und speichert kalibriertes Spektrum
 
 ### Verwendung
 ```bash
-python3 spec_calsci.py ARBEITSORDNER
+python3 spec_calsci.py ARBEITSORDNER [--ylog] [--solution DATEI]
 ```
 
 **Optionale Flags:**
+- `--ylog` - zeigt das Kalibrationsspektrum mit logarithmischer y-Achse
 - `--solution <file>` oder `--apply <file>` - Wendet eine gespeicherte Wellenlösung direkt an (keine interaktive Kalibrierung)
   ```bash
   python3 spec_calsci.py ARBEITSORDNER --solution out/wavelength_solution.txt
+  python3 spec_calsci.py ARBEITSORDNER --ylog --solution out/wavelength_solution.txt
   ```
 
 ### Eingabe
@@ -148,15 +157,13 @@ python3 spec_calsci.py ARBEITSORDNER
 ### Ausgabe
 - `ARBEITSORDNER/out/wavelength_solution.txt` - Polynom-Koeffizienten
 - `ARBEITSORDNER/out/science_spectrum_calibrated.fits` - Wellenlängen-kalibriertes Spektrum
-  - Spalten: `WAVELENGTH`, `FLUX`
+  - Spalten: `PIXEL`, `WAVELENGTH`, `FLUX`
 
 ### Interaktive Bedienung
-1. **Linien markieren:** Klick auf Peak im Plot
-2. **Wellenlänge eingeben:** Textfeld (Angström)
-3. **"Add Line"** - Punkt zur Liste hinzufügen
-4. **Polynomial-Grad wählen:** Textfeld (Standard: 3)
-5. **"Fit Polynomial"** - Berechnet Wellenlösung
-6. **"Apply & Save"** - Speichert kalibriertes Spektrum
+1. **Linien markieren:** Linksklick auf Peak im unteren Kalibrations-Plot
+2. **Wellenlänge eingeben:** Wert im Textfeld (Å)
+3. **Bestätigen:** Mit Enter oder Button **Bestätigen** Referenzpunkt übernehmen
+4. **Fertig:** Mit Button **Fertig** die Auswahl beenden und Fit/Speicherung ausführen
 
 ### Wellenlösungs-Format (`wavelength_solution.txt`)
 ```

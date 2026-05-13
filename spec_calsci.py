@@ -10,11 +10,38 @@ from matplotlib.widgets import TextBox, Button
 # -------------------------
 # Parameter
 # -------------------------
-if len(sys.argv) != 2:
-    print("Verwendung: python spec_calsci.py ARBEITSORDNER")
-    sys.exit(1)
+args = sys.argv[1:]
+ylog_calibration = False
+solution_file = None
+work_dir = None
 
-work_dir = sys.argv[1]
+i = 0
+while i < len(args):
+    a = args[i]
+    if a == "--ylog":
+        ylog_calibration = True
+        i += 1
+    elif a in ("--solution", "--apply"):
+        if i + 1 >= len(args):
+            print("Fehler: Nach --solution/--apply fehlt ein Dateipfad.")
+            sys.exit(1)
+        solution_file = args[i + 1]
+        i += 2
+    elif a.startswith("--"):
+        print(f"Unbekannte Option: {a}")
+        print("Verwendung: python spec_calsci.py ARBEITSORDNER [--ylog] [--solution DATEI]")
+        sys.exit(1)
+    else:
+        if work_dir is not None:
+            print("Fehler: Mehrere Arbeitsordner angegeben.")
+            print("Verwendung: python spec_calsci.py ARBEITSORDNER [--ylog] [--solution DATEI]")
+            sys.exit(1)
+        work_dir = a
+        i += 1
+
+if work_dir is None:
+    print("Verwendung: python spec_calsci.py ARBEITSORDNER [--ylog] [--solution DATEI]")
+    sys.exit(1)
 in_dir = os.path.join(work_dir, "in")
 out_dir = os.path.join(work_dir, "out")
 
@@ -155,6 +182,18 @@ def extract_1d_spectrum(daten, y_fit, half_width=5, sky_median_per_col=None):
             flux[i] = np.nansum(ap_pixels) - sky_median_per_col[i] * npix
     return flux
 
+def plot_calibration_spectrum(ax, x, flux, use_ylog=False, color='red'):
+    if use_ylog:
+        positive_mask = flux > 0
+        if np.any(positive_mask):
+            ax.plot(x, np.where(positive_mask, flux, np.nan), color=color)
+            ax.set_yscale('log')
+        else:
+            print("Warnung: Das Kalibrationsspektrum enthält keine positiven Werte für eine logaritmische y-Achse.")
+            ax.plot(x, flux, color=color)
+    else:
+        ax.plot(x, flux, color=color)
+
 # -------------------------
 # Kalibrationsspektrum extrahieren
 # -------------------------
@@ -182,7 +221,7 @@ ax1.set_ylabel("Flux")
 ax1.grid(True)
 
 # Kalibrationsspektrum
-ax2.plot(trace_cal["x"], flux_cal, color='red')
+plot_calibration_spectrum(ax2, trace_cal["x"], flux_cal, use_ylog=ylog_calibration, color='red')
 ax2.set_title("Kalibrations-Spektrum (1D, Sky-subtrahiert) - bitte Linien anklicken")
 ax2.set_xlabel("Pixel")
 ax2.set_ylabel("Flux")
@@ -192,11 +231,9 @@ ax2.grid(True)
 # Option: Wellenlösung aus Datei verwenden?
 # -------------------------
 use_solution = False
-solution_file = None
 
-# CLI: --solution <file>
-if len(sys.argv) >= 3 and sys.argv[1] in ("--solution", "--apply"):
-    solution_file = sys.argv[2]
+# CLI: --solution <file> / --apply <file>
+if solution_file is not None:
     if not os.path.exists(solution_file):
         print(f"Lösungsdatei '{solution_file}' nicht gefunden.")
         solution_file = None
