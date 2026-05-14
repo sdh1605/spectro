@@ -262,14 +262,35 @@ flux_calibrated = apply_flux_calibration(
 
 ### Funktionalität
 - Lädt wellenlängen-kalibriertes Spektrum
-- Automatische Detektion von Absorptions-/Emissionslinien
+- Optionale logarithmische y-Achse (`--ylog`)
+- Optionaler Einzel-Plot des unnormierten Spektrums (`--raw-only`)
+- Frei wählbarer Wellenlängenbereich (`--wmin`, `--wmax`) mit feinem Wellenlängengitter
+- Automatische Peak-Bestimmung und Export der Peak-Wellenlängen (`--auto-peaks`, `--peaks-out`)
 - Identifizierung bekannter Linien (100+ Datenbank)
-- Erstellt 2-Panel-Plot (original + normalisiert)
-- Annotiert identifizierte Linien
+- Zeichnet bei `--auto-peaks` deutliche vertikale Peak-Linien ein
 
 ### Verwendung
 ```bash
-python3 spec_plot.py ARBEITSORDNER
+python3 spec_plot.py ARBEITSORDNER [--ylog] [--raw-only] [--wmin A] [--wmax B] [--auto-peaks] [--peaks-out DATEI]
+```
+
+### Optionen
+- `--ylog` - logarithmische y-Achse für den Flux-Plot
+- `--raw-only` - zeigt nur das unnormierte Spektrum (ein Panel)
+- `--wmin A` / `--wmax B` - begrenzt die Darstellung auf den Wellenlängenbereich `[A, B]` in Å
+- `--auto-peaks` - bestimmt automatisch Peaks und zeichnet deren Positionen im Plot ein
+- `--peaks-out DATEI` - Ausgabedatei für automatische Peak-Liste (Standard: `out/detected_peaks.txt`)
+
+### Beispiele
+```bash
+# Standardplot (2 Panels)
+python3 spec_plot.py vega
+
+# Nur unnormiertes Spektrum im Bereich 4800-5200 Å
+python3 spec_plot.py vega --raw-only --wmin 4800 --wmax 5200
+
+# Log-y + automatische Peaks mit Export
+python3 spec_plot.py vega --ylog --auto-peaks --peaks-out out/peaks_vega.txt
 ```
 
 ### Eingabe
@@ -277,7 +298,8 @@ python3 spec_plot.py ARBEITSORDNER
 
 ### Ausgabe
 - `ARBEITSORDNER/out/science_spectrum_with_lines_improved.png`
-- Konsolen-Ausgabe: Liste aller gefundenen Linien
+- Optional: `ARBEITSORDNER/out/detected_peaks.txt` (oder Pfad aus `--peaks-out`) mit Peak-Wellenlängen
+- Konsolen-Ausgabe: Liste identifizierter Linien und (bei `--auto-peaks`) automatisch gefundener Peaks
 
 ### Linien-Datenbank (Auszug)
 **Wasserstoff Balmer-Serie:**
@@ -301,9 +323,8 @@ python3 spec_plot.py ARBEITSORDNER
 
 ### Detektions-Parameter
 - **Kontinuums-Fit:** Savitzky-Golay Filter (window=501, polyorder=3)
-- **Minimale Prominenz:** 0.03
-- **Minimaler Abstand:** 15 Pixel
-- **SNR-Schwelle:** 3.0
+- **Liniendetektion (identifizierte Linien):** adaptive Prominenz/SNR-Filterung
+- **Auto-Peaks:** Maxima-basierte Suche mit lokaler Nachsuche für nahe, breite Peaks
 - **Matching-Toleranz:** 8 Å
 
 ---
@@ -486,7 +507,6 @@ Extension 1: BinTableHDU
   Spalten:
     - PIXEL (int): Pixel-Index
     - FLUX (float): Extrahierter Flux [counts]
-    - SKY (float): Himmelshintergrund [counts]
 ```
 
 #### science_spectrum_calibrated.fits (spec_calsci.py)
@@ -494,6 +514,7 @@ Extension 1: BinTableHDU
 Extension 0: PrimaryHDU (leer)
 Extension 1: BinTableHDU
   Spalten:
+    - PIXEL (float): Pixel-Index
     - WAVELENGTH (float): Wellenlänge [Å]
     - FLUX (float): Flux [counts]
 ```
